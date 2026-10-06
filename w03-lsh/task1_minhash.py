@@ -30,7 +30,14 @@ BOOK_HASHES = [lambda r: (r + 1) % 5, lambda r: (3 * r + 1) % 5]
 
 def jaccard(a, b):
     """|a and b| / |a or b|. Empty union is 0, not an error."""
-    raise NotImplementedError("jaccard similarity")
+    # §3.1. The union is the denominator, so two empty sets have nothing to
+    # divide by. Returning 0 keeps the caller free of a special case; the
+    # alternative (1, "they are identical") would make every empty document a
+    # near-duplicate of every other, which is worse than calling them unrelated.
+    union = len(a | b)
+    if not union:
+        return 0
+    return len(a & b) / union
 
 
 def minhash_signatures(columns, hashes, n_rows):
@@ -48,7 +55,36 @@ def minhash_signatures(columns, hashes, n_rows):
     written something correct that does not survive a dataset that does not fit
     in memory, and not fitting in memory is what this course is about.
     """
-    raise NotImplementedError("signature matrix")
+    n_hashes = len(hashes)
+    INF = float("inf")
+    # sig[column][hash]. Infinity is the identity for min, so the first real
+    # value a column sees always wins without a "have I set this yet" flag.
+    sig = [[INF] * n_hashes for _ in columns]
+
+    # The sparse matrix, turned on its side: for each row, which columns have a
+    # 1 in it. Built by touching each 1 exactly once. This is what lets the
+    # loop below handle a row without asking all N columns whether they contain
+    # it, and it is the same thing step 2 of the §3.4.3 procedure does when it
+    # sorts the document-shingle pairs by shingle.
+    rows_to_cols = [[] for _ in range(n_rows)]
+    for c, col in enumerate(columns):
+        for r in col:
+            rows_to_cols[r].append(c)
+
+    # §3.3.5, one pass. Row r is visited once; its n hash values are computed
+    # once and reused for every column that has a 1 in that row. Nothing is
+    # sorted and no column is read twice, so rows could arrive from a stream
+    # and be discarded immediately after - which is the whole reason to write
+    # it this way rather than permuting the matrix.
+    for r in range(n_rows):
+        hv = [h(r) for h in hashes]
+        for c in rows_to_cols[r]:
+            col_sig = sig[c]
+            for i in range(n_hashes):
+                if hv[i] < col_sig[i]:
+                    col_sig[i] = hv[i]
+
+    return sig
 
 
 def lsh_candidates(signatures, bands):
@@ -60,7 +96,52 @@ def lsh_candidates(signatures, bands):
     The signature length must divide evenly by `bands`, or you have to decide
     what to do with the remainder. Say what you decided.
     """
-    raise NotImplementedError("LSH candidate pairs")
+    if bands < 1:
+        raise ValueError("bands must be at least 1")
+    if not signatures:
+        return set()
+
+    n = len(signatures[0])
+    if bands > n:
+        raise ValueError(f"{bands} bands asked of a signature of length {n}")
+
+    # R5 - my decision. The remainder is spread one row at a time across the
+    # leading bands, so every row belongs to exactly one band and no two bands
+    # differ in width by more than one. With n=10 and bands=3 that gives 4,3,3.
+    #
+    # The two alternatives are worse. Dropping the leftover rows throws away
+    # signal that was already paid for in hashing. Handing all of them to one
+    # band makes that band wide, and a band of r rows has its own step at
+    # (1/b)^(1/r), so one fat band turns the S-curve into a blend of two curves
+    # that sit far apart. An even split still blends two curves when n % bands
+    # is nonzero, but the two are adjacent, so the step stays sharp.
+    base, extra = divmod(n, bands)
+    edges, start = [], 0
+    for band in range(bands):
+        width = base + (1 if band < extra else 0)
+        edges.append((start, start + width))
+        start += width
+
+    # §3.4.1. One bucket space per band. Keying on (band, vector) is exactly
+    # what "each band must have its own bucket array" buys: the same vector
+    # appearing in two different bands can no longer look like a match.
+    # Hashing the tuple itself means equal vectors always collide and unequal
+    # ones never do, so §3.4.2's "accidental collisions are rare" caveat does
+    # not apply - this is the idealised version of that assumption.
+    buckets = {}
+    for c, sig in enumerate(signatures):
+        for band, (lo, hi) in enumerate(edges):
+            buckets.setdefault((band, tuple(sig[lo:hi])), []).append(c)
+
+    # A pair is a candidate if it shared a bucket in at least one band, so the
+    # set absorbs the duplicates from pairs that agreed in several bands.
+    candidates = set()
+    for members in buckets.values():
+        for a in range(len(members)):
+            for b in range(a + 1, len(members)):
+                i, j = members[a], members[b]
+                candidates.add((i, j) if i < j else (j, i))
+    return candidates
 
 
 # ------------------------------------------------------------------- harness

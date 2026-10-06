@@ -30,6 +30,44 @@ def machine():
     }
 
 
+def build_n(n, bench):
+    """n documents, using bench.py's own recipe.
+
+    Why this exists. The script originally did `bench.build()[:n]`, and
+    bench.build() returns exactly N_DOCS + PLANTED = 2,120 documents. Every
+    size above that silently measured the same 2,120 documents while recording
+    the n that was asked for, so `--sizes 4000,8000,16000` produced three
+    identical timings labelled as four-, eight- and sixteen-thousand. The
+    automated check in test_tasks.py only reads the recorded n, so that would
+    have passed while A4 - doubling n should quadruple the time - was being
+    tested against data that never doubled.
+
+    Below 2,120 this returns a prefix of bench.build(), so those rows are the
+    same documents Task 3 is scored on. Above it, the same generator is run at
+    the requested size: identical VOCAB and shingle count, and the planted
+    pairs kept at the same fraction of the corpus, so the curve stays one
+    curve. The seed is fixed, so re-running a size reproduces it.
+    """
+    base = bench.build()
+    if n <= len(base):
+        return base[:n]
+
+    import random
+    planted = round(n * bench.PLANTED / (bench.N_DOCS + bench.PLANTED))
+    originals = n - planted
+    rng = random.Random(bench.SEED)
+    docs = [set(rng.sample(range(bench.VOCAB), bench.SHINGLES))
+            for _ in range(originals)]
+    for _ in range(planted):
+        clone = set(docs[rng.randrange(originals)])
+        for _ in range(rng.randint(4, 14)):
+            clone.discard(rng.choice(list(clone)))
+            clone.add(rng.randrange(bench.VOCAB))
+        docs.append(clone)
+    rng.shuffle(docs)
+    return docs
+
+
 def timed(fn, *args):
     """Wall time and peak memory of one call."""
     tracemalloc.start()
@@ -58,7 +96,8 @@ def main():
 
     rows = []
     for n in [int(x) for x in a.sizes.split(",")]:
-        docs = bench.build()[:n]
+        docs = build_n(n, bench)
+        assert len(docs) == n, f"asked for {n} documents, got {len(docs)}"
         sim = bench.Counter()
         _, t_brute, m_brute = timed(BruteForce(a.threshold).find, docs, sim)
         c_brute = sim.calls
