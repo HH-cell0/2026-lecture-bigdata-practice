@@ -13,7 +13,7 @@ record where your laptop stops coping.
 
 Your numbers will not match anybody else's. That is the point.
 """
-import argparse, json, os, platform, time, tracemalloc
+import argparse, json, math, os, platform, time, tracemalloc
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -64,6 +64,15 @@ def main():
         true, t_exact, m_exact = exact_distinct(n)
         row = {"n": n, "true_distinct": true, "exact_s": t_exact,
                "exact_peak_bytes": m_exact}
+        # FM's median can only answer a power of two, so its ratio to the
+        # truth is set by where the *measured* distinct count sits between two
+        # powers of two: the fractional part of log2(true). Sizes 4x apart
+        # share that fraction and so share a ratio; recording it is what lets
+        # A5 tell "accuracy is constant" apart from "the sizes were aligned".
+        # Computed after the timed and traced section, so it costs nothing.
+        if true:
+            row["log2_distinct"] = math.log2(true)
+            row["log2_frac"] = row["log2_distinct"] % 1
 
         if flajolet_martin is not None:
             try:
@@ -81,7 +90,7 @@ def main():
 
         rows.append(row)
         line = (f"  n={n:>10,}  distinct {true:>9,}   exact {t_exact:>7.2f}s "
-                f"{m_exact / 1e6:>8.1f} MB")
+                f"{m_exact / 1e6:>8.1f} MB  log2 frac {row.get('log2_frac', 0):.3f}")
         if "fm_s" in row:
             line += (f"   |  fm {row['fm_s']:>7.2f}s {row['fm_peak_bytes'] / 1e6:>6.2f} MB"
                      f"  {row['fm_ratio']:.2f}x")
