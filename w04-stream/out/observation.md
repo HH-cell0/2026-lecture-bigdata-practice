@@ -9,7 +9,7 @@
 
 ## Task 2
 
-- Up to 6.4M neither method became unbearable untraced (exact 13.43 s, 188.3 MB); extrapolated, exact's memory wall is n ≈ 282M (upper bound, 7.7 GiB), reached in about 3 min, so exact stops on memory, while FM at that size needs about 2 h, so FM stops on time.
+- Up to 6.4M neither method became unbearable untraced (traced; exact 13.43 s, 188.3 MB); extrapolated, exact's memory wall is n ≈ 282M (upper bound, 7.7 GiB), reached in about 3 min, so exact stops on memory, while FM at that size needs about 2 h, so FM stops on time.
 - Exact: 1.05 MB + 79.7 B × D, linear but not proportional (D ×64, memory ×48); FM: 12.1–12.9 KB at every size, flat.
 - Enough for "did today's visitors run in the thousands or the millions?", since 2x cannot cross a factor of 1,000; not enough for "did visitors rise today versus yesterday?", since D = 587,625 read 1.78x and D = 2,349,909 read 0.89x, so a 2x swing is within the estimator's error.
 
