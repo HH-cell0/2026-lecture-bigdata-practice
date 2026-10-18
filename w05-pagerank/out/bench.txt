@@ -1,0 +1,25 @@
+# bench.py --yours, run 1 and run 2 back to back on this laptop (2026-10-18 17:52)
+## run 1
+
+  1,200 nodes, 5,877 edges, density 0.4081%
+
+  baseline      0.78s   floats held    1,440,000   sum 1.000000
+  yours         0.01s   floats held        2,400   sum 1.000000   worst diff 6.94e-17
+
+   ok    ranks match to 1e-9
+     59.3x faster     600.0x less memory
+
+   -> strong
+
+## run 2
+
+  1,200 nodes, 5,877 edges, density 0.4081%
+
+  baseline      0.83s   floats held    1,440,000   sum 1.000000
+  yours         0.01s   floats held        2,400   sum 1.000000   worst diff 6.94e-17
+
+   ok    ranks match to 1e-9
+     71.2x faster     600.0x less memory
+
+   -> strong
+

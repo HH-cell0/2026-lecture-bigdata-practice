@@ -86,10 +86,44 @@ class YourPageRank:
     """
 
     def __init__(self, beta=0.85, tol=1e-10, max_iter=100):
-        raise NotImplementedError("write your PageRank")
+        # Same parameters and defaults as DenseMatrix, so both stop by the same rule.
+        self.beta, self.tol, self.max_iter = beta, tol, max_iter
 
     def run(self, graph):
-        raise NotImplementedError
+        # Same node order as DenseMatrix, so the returned ranks line up node by node.
+        nodes = list(graph)
+        n = len(nodes)
+        self._n = n
+        index = {v: i for i, v in enumerate(nodes)}
+        # The adjacency list re-indexed to integers: E + n ints, no floats. This is
+        # what we keep instead of M - the graph already was the sparse matrix.
+        adj = [[index[w] for w in graph[v]] for v in nodes]
+        dead = [i for i, a in enumerate(adj) if not a]
+
+        r = [1.0 / n] * n
+        for self.iterations in range(1, self.max_iter + 1):
+            # Dead-end columns of M are all 1/n and teleport adds (1-beta)/n, so
+            # both reduce to one scalar given to every node:
+            # beta * D / n + (1 - beta) / n, with D the rank sitting on dead ends.
+            # No n x n operation: (1/n everywhere) times r is just sum / n.
+            base = (self.beta * sum(r[j] for j in dead) + (1 - self.beta)) / n
+            nr = [0.0] * n
+            for u, a in enumerate(adj):
+                if a:
+                    # Divide inline instead of storing a 1/outdeg table, which
+                    # would be n more floats held.
+                    share = r[u] / len(a)
+                    for w in a:
+                        nr[w] += share
+            nr = [self.beta * s + base for s in nr]
+            # Same L1 stopping rule as DenseMatrix.
+            delta = sum(abs(x - y) for x, y in zip(nr, r))
+            r = nr
+            if delta < self.tol:
+                break
+        return {v: r[index[v]] for v in nodes}
 
     def memory_floats(self):
-        raise NotImplementedError
+        # r and nr are the only float arrays, and both are alive during an
+        # iteration: 2n. Scalars (base, share, delta) are O(1) and not counted.
+        return 2 * getattr(self, "_n", 0)

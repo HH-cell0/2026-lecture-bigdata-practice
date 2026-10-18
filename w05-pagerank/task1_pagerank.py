@@ -24,6 +24,28 @@ DEAD_END = {"A": ["B", "C"], "B": ["C"], "C": []}
 SPIDER_TRAP = {"A": ["B"], "B": ["C"], "C": ["D"], "D": ["C"]}
 
 
+def _nodes(graph):
+    # Every key plus every link target, sorted for a stable order. A node that
+    # only ever appears as a target is still a page the surfer can land on.
+    return sorted(set(graph) | {v for outs in graph.values() for v in outs})
+
+
+def _follow_links(graph, nodes, r):
+    """One step of pure link-following: r'[v] = sum over u->v of r[u] / outdeg(u).
+
+    This is M r with nothing added. Both functions share it so the only
+    difference between the broken and the fixed version is what pagerank adds
+    on top - the fix cannot hide in here.
+    """
+    nxt = {v: 0.0 for v in nodes}
+    for u, outs in graph.items():
+        # A dead end has no outs, so this loop does nothing and r[u] is simply
+        # not passed on: that is the leak.
+        for v in outs:
+            nxt[v] += r[u] / len(outs)
+    return nxt
+
+
 def pagerank(graph, beta=0.85, iterations=100, tol=1e-10):
     """Rank every node. Return {node: rank}, summing to 1.
 
@@ -41,7 +63,30 @@ def pagerank(graph, beta=0.85, iterations=100, tol=1e-10):
     you should call it converged. Return the ranks, and set `pagerank.iterations`
     to how many you actually used, because Task 2 measures that.
     """
-    raise NotImplementedError("implement PageRank")
+    nodes = _nodes(graph)
+    n = len(nodes)
+    # Start uniform: the surfer is equally likely to be anywhere, and the
+    # vector already sums to 1.
+    r = {v: 1.0 / n for v in nodes}
+    used = 0
+    for used in range(1, iterations + 1):
+        # Follow a link with probability beta.
+        nxt = {v: beta * x for v, x in _follow_links(graph, nodes, r).items()}
+        # The fix, one line. Whatever did not arrive anywhere - the 1 - beta the
+        # surfer spent teleporting, plus whatever leaked out through dead ends -
+        # is handed back uniformly. For dead ends that is the same as giving
+        # them a link to every node; for traps it is the teleport that lets the
+        # surfer escape. The sum is back to exactly 1 every step (R1, R2).
+        leaked = 1.0 - sum(nxt.values())
+        nxt = {v: x + leaked / n for v, x in nxt.items()}
+        # L1 change between steps (R4): total rank that moved this iteration.
+        change = sum(abs(nxt[v] - r[v]) for v in nodes)
+        r = nxt
+        if change < tol:
+            break
+    # Number of updates actually performed, read by Task 2 (R5).
+    pagerank.iterations = used
+    return r
 
 
 def pagerank_no_teleport(graph, iterations=100):
@@ -50,7 +95,16 @@ def pagerank_no_teleport(graph, iterations=100):
     It exists so you can watch both failures happen rather than take them on
     trust. The harness checks that it really does fail.
     """
-    raise NotImplementedError("implement the broken version")
+    nodes = _nodes(graph)
+    r = {v: 1.0 / len(nodes) for v in nodes}
+    for _ in range(iterations):
+        # r = M r and nothing else. Deliberately no teleport term, no
+        # redistribution of leaked rank, and no renormalisation: any of those
+        # would quietly repair one of the two failures this is meant to show.
+        # Not written as pagerank(beta=1) either, because pagerank's fix line
+        # would still refill the dead-end leak at beta = 1.
+        r = _follow_links(graph, nodes, r)
+    return r
 
 
 # ------------------------------------------------------------------- harness
