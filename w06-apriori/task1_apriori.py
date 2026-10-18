@@ -30,7 +30,13 @@ BASKETS = [
 
 def frequent_singletons(baskets, support):
     """Items appearing in at least `support` baskets. Return {item: count}."""
-    raise NotImplementedError("pass one")
+    # Pass one: one integer per item. A basket is a set, so each item counts
+    # at most once per basket, which is what "appears in a basket" means.
+    counts = {}
+    for basket in baskets:
+        for item in basket:
+            counts[item] = counts.get(item, 0) + 1
+    return {i: c for i, c in counts.items() if c >= support}
 
 
 def frequent_pairs(baskets, support):
@@ -44,7 +50,18 @@ def frequent_pairs(baskets, support):
     A-Priori exists to avoid, and it will pass this harness while failing the
     point. Task 3 measures whether you actually did it.
     """
-    raise NotImplementedError("pass two")
+    frequent = frequent_singletons(baskets, support)
+    counts = {}
+    for basket in baskets:
+        # Filter the basket down to pass-one survivors *before* forming pairs,
+        # so a pair with an infrequent item never gets a counter at all - that
+        # is the whole saving. Sorted so {a, b} always becomes the same key (a, b).
+        items = sorted(i for i in basket if i in frequent)
+        for pair in combinations(items, 2):
+            counts[pair] = counts.get(pair, 0) + 1
+    # Kept for checking R2 from outside: how many pair counters pass two held.
+    frequent_pairs.counters = len(counts)
+    return {frozenset(p): c for p, c in counts.items() if c >= support}
 
 
 def association_rules(baskets, support, min_confidence):
@@ -60,7 +77,22 @@ def association_rules(baskets, support, min_confidence):
     rule with high confidence and lift near 1 tells you nothing - the consequent
     was common anyway - and §6.1.3 is about why that matters more than it looks.
     """
-    raise NotImplementedError("rules")
+    singles = frequent_singletons(baskets, support)
+    n = len(baskets)
+    rules = []
+    for pair, c in frequent_pairs(baskets, support).items():
+        a, b = sorted(pair)
+        # Both directions, because confidence divides by the antecedent's own
+        # support, so i -> j and j -> i differ whenever s(i) != s(j).
+        for i, j in ((a, b), (b, a)):
+            conf = c / singles[i]
+            if conf >= min_confidence:
+                # Lift: how much more likely j is given i than j is on its own
+                # (its fraction of all baskets). 1 means i tells you nothing.
+                rules.append((i, j, conf, conf / (singles[j] / n)))
+    # Highest confidence first; ties broken by names so the order is repeatable.
+    rules.sort(key=lambda r: (-r[2], r[0], r[1]))
+    return rules
 
 
 # ------------------------------------------------------------------- harness

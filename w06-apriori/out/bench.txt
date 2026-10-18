@@ -1,0 +1,28 @@
+Week 6 Task 3 - python bench.py --yours, run twice on the same laptop
+Intel i5-1135G7 (4C/8T), 7.7 GB RAM, Windows 11, Python 3.14.8
+
+--- run 1 ---
+  20,000 baskets, 2,000 items, support 50
+
+  baseline     pairs  6397   peak counters    820,259     1.45s   -
+  yours        pairs  6397   peak counters    152,003     2.94s   missing 0, extra 0
+
+   ok    same frequent pairs
+   peak counters cut by 81.5%  (152,003 from 820,259)
+
+   -> strong
+
+--- run 2 ---
+  20,000 baskets, 2,000 items, support 50
+
+  baseline     pairs  6397   peak counters    820,259     1.35s   -
+  yours        pairs  6397   peak counters    152,003     2.70s   missing 0, extra 0
+
+   ok    same frequent pairs
+   peak counters cut by 81.5%  (152,003 from 820,259)
+
+   -> strong
+
+Run-to-run spread: peak counters identical (deterministic, fixed seed);
+  baseline time 1.45s / 1.35s, spread 7%
+  yours    time 2.94s / 2.70s, spread 9%
