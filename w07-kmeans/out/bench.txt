@@ -1,0 +1,12 @@
+
+  20,000 points in 20 dimensions, k = 12
+
+  baseline   distances   10,320,000   sse  10,737,882.94    43 iters    34.37s
+  yours      distances      330,077   sse  10,737,882.94    43 iters     4.76s
+
+   ok    sse matches to 0.0000%
+   distance computations cut by 96.8%  (330,077 from 10,320,000)
+
+   -> strong
+
+  note: baseline took 34.37-54.62 s on this laptop (i5-1135G7) against task3.md's 13.33 s, which is the author's machine and not comparable; the score is deterministic, 10,320,000 and 330,077 distance calls on any machine.
